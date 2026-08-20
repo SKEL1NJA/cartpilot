@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Environment variables (secrets!)
+.env
+backend/.env
+frontend/.env
+
+# Editor/OS junk
+.DS_Store
+.vscode/
+
+# Build output
+frontend/dist/
