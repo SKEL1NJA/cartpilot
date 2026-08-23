@@ -2,7 +2,9 @@ const crypto = require('crypto');
 const Customer = require('../models/Customer');
 const Conversation = require('../models/Conversation');
 const Merchant = require('../models/Merchant');
+const Product = require('../models/Product');
 const { getRecentMessages } = require('../utils/context');
+const { generateReply } = require('../services/geminiService');
 
 // POST /api/chat
 async function handleChatMessage(req, res) {
@@ -13,7 +15,6 @@ async function handleChatMessage(req, res) {
       return res.status(400).json({ error: 'A "message" string is required' });
     }
 
-    // Step A: find or create the customer
     const activeSessionId = sessionId || crypto.randomUUID();
     let customer = await Customer.findOne({ sessionId: activeSessionId });
     if (!customer) {
@@ -39,8 +40,16 @@ async function handleChatMessage(req, res) {
 
     conversation.messages.push({ role: 'user', content: message });
 
-    const recentContext = getRecentMessages(conversation);
-    const reply = `(stub) I heard ${recentContext.length} recent message(s). You said: "${message}"`;
+    const products = await Product.find({ merchantId: merchant._id });
+    const recentMessages = getRecentMessages(conversation);
+
+    let reply;
+    try {
+      reply = await generateReply({ merchant, products, recentMessages });
+    } catch (aiError) {
+      console.error('Gemini call failed:', aiError.message);
+      reply = "Sorry, I'm having trouble thinking right now — please try again in a moment.";
+    }
 
     conversation.messages.push({ role: 'agent', content: reply });
     conversation.updatedAt = new Date();
