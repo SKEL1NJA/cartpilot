@@ -1,0 +1,42 @@
+const { callGemini, buildSystemPrompt, formatHistoryForGemini } = require('../services/geminiService');
+const { TOOL_DECLARATIONS, executeTool } = require('./tools');
+
+const MAX_TOOL_ITERATIONS = 5;
+
+async function runAgent({ merchant, products, recentMessages, conversationId }) {
+  const systemInstruction = buildSystemPrompt(merchant, products);
+  let contents = formatHistoryForGemini(recentMessages);
+  const toolCallLog = [];
+
+  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const response = await callGemini({
+      contents,
+      systemInstruction,
+      tools: [{ functionDeclarations: TOOL_DECLARATIONS }]
+    });
+
+    const functionCalls = response.functionCalls;
+
+    if (!functionCalls || functionCalls.length === 0) {
+      return { reply: response.text, toolCallLog };
+    }
+
+    contents.push(response.candidates[0].content);
+
+    const responseParts = [];
+    for (const call of functionCalls) {
+      const result = await executeTool(call, { conversationId, merchantId: merchant._id });
+      toolCallLog.push({ tool: call.name, args: call.args, result });
+      responseParts.push({ functionResponse: { name: call.name, response: result } });
+    }
+
+    contents.push({ role: 'user', parts: responseParts });
+  }
+
+  return {
+    reply: "I've shared what I found above.",
+    toolCallLog
+  };
+}
+
+module.exports = { runAgent };

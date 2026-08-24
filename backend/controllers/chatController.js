@@ -4,7 +4,7 @@ const Conversation = require('../models/Conversation');
 const Merchant = require('../models/Merchant');
 const Product = require('../models/Product');
 const { getRecentMessages } = require('../utils/context');
-const { generateReply } = require('../services/geminiService');
+const { runAgent } = require('../agent/orchestrator');
 
 // POST /api/chat
 async function handleChatMessage(req, res) {
@@ -44,10 +44,18 @@ async function handleChatMessage(req, res) {
     const recentMessages = getRecentMessages(conversation);
 
     let reply;
+    let toolCallLog = [];
     try {
-      reply = await generateReply({ merchant, products, recentMessages });
+      const result = await runAgent({
+        merchant,
+        products,
+        recentMessages,
+        conversationId: conversation._id
+      });
+      reply = result.reply;
+      toolCallLog = result.toolCallLog;
     } catch (aiError) {
-      console.error('Gemini call failed:', aiError.message);
+      console.error('Agent run failed:', aiError.message);
       reply = "Sorry, I'm having trouble thinking right now — please try again in a moment.";
     }
 
@@ -58,7 +66,8 @@ async function handleChatMessage(req, res) {
     res.status(200).json({
       reply,
       sessionId: activeSessionId,
-      conversationId: conversation._id
+      conversationId: conversation._id,
+      toolCallLog // TEMPORARY
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process chat message', details: err.message });
