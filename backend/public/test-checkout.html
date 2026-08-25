@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head><title>CartPilot Test Checkout</title></head>
+<body style="font-family: sans-serif; max-width: 500px; margin: 40px auto;">
+  <h2>CartPilot — Test Checkout</h2>
+  <p>Get a real Product ID from <a href="/api/products">/api/products</a>. Conversation ID + discount are optional — only fill them in if you have an approved discount from earlier testing.</p>
+  <p><strong>Test card (domestic):</strong> 5500 6700 0000 1002 (Mastercard) — any future expiry, any CVV, OTP 4+ digits for success, under 4 digits for failure.</p>
+
+  <label>Product ID</label><br>
+  <input id="productId" style="width:100%; padding:6px;"><br><br>
+
+  <label>Conversation ID (optional)</label><br>
+  <input id="conversationId" style="width:100%; padding:6px;"><br><br>
+
+  <label>Discount % (optional, must be pre-approved)</label><br>
+  <input id="discountPercent" style="width:100%; padding:6px;"><br><br>
+
+  <button onclick="startCheckout()" style="padding:10px 20px;">Pay Now</button>
+  <p id="status" style="font-weight:bold;"></p>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    async function startCheckout() {
+      const productId = document.getElementById('productId').value;
+      const conversationId = document.getElementById('conversationId').value;
+      const discountPercent = document.getElementById('discountPercent').value;
+      const statusEl = document.getElementById('status');
+
+      statusEl.innerText = 'Creating order...';
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId,
+          conversationId: conversationId || undefined,
+          discountPercent: discountPercent ? Number(discountPercent) : undefined
+        })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        statusEl.innerText = 'Order creation failed: ' + data.error;
+        return;
+      }
+
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+        order_id: data.razorpayOrderId,
+        name: 'Glow & Co.',
+        description: 'CartPilot Test Purchase',
+        handler: async function (response) {
+          statusEl.innerText = 'Verifying payment...';
+          const verifyRes = await fetch('/api/orders/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(response)
+          });
+          const verifyData = await verifyRes.json();
+          statusEl.innerText = verifyData.verified
+            ? '✅ Payment verified — order marked paid.'
+            : '❌ Verification failed.';
+        },
+        modal: {
+          ondismiss: function () {
+            statusEl.innerText = 'Checkout closed without paying.';
+          }
+        }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        statusEl.innerText = '❌ Payment failed: ' + response.error.description;
+      });
+      rzp.open();
+    }
+  </script>
+</body>
+</html>

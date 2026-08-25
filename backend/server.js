@@ -3,6 +3,7 @@ const express = require('express');
 const connectDB = require('./config/db');
 const productRoutes = require('./routes/products');
 const chatRoutes = require('./routes/chat');
+const orderRoutes = require('./routes/orders');
 
 connectDB();
 
@@ -15,6 +16,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'CartPilot backend is alive' });
 });
 
+app.use(express.static('public'));
+app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/chat', chatRoutes);
 
