@@ -25,7 +25,7 @@ async function runAgent({ merchant, products, recentMessages, conversationId }) 
 
     const responseParts = [];
     for (const call of functionCalls) {
-      const result = await executeTool(call, { conversationId, merchantId: merchant._id });
+      const result = await executeTool(call, { conversationId, merchantId: merchant._id, merchant });
       toolCallLog.push({ tool: call.name, args: call.args, result });
       responseParts.push({ functionResponse: { name: call.name, response: result } });
     }

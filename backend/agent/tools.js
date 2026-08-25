@@ -1,5 +1,7 @@
 const Product = require('../models/Product');
 const AgentDecision = require('../models/AgentDecision');
+const { upsellArgsSchema, discountArgsSchema } = require('./schemas');
+const { evaluateUpsell, evaluateDiscount } = require('./rules');
 
 const TOOL_DECLARATIONS = [
   {
@@ -16,7 +18,7 @@ const TOOL_DECLARATIONS = [
   },
   {
     name: 'propose_discount',
-    description: 'Propose a percentage discount on a specific product to help close the sale. This only logs a proposal — it does not apply automatically.',
+    description: 'Propose a percentage discount on a specific product to help close the sale. This only logs a request — it does not apply automatically.',
     parametersJsonSchema: {
       type: 'object',
       properties: {
@@ -29,44 +31,81 @@ const TOOL_DECLARATIONS = [
   }
 ];
 
-async function executeTool(call, { conversationId, merchantId }) {
+async function executeTool(call, { conversationId, merchantId, merchant }) {
   const { name, args } = call;
 
-  const product = await Product.findById(args.productId).catch(() => null);
-  if (!product) {
-    return { success: false, error: 'Product not found in catalog. Do not tell the shopper this succeeded.' };
-  }
-
   if (name === 'propose_upsell') {
+    const parsed = upsellArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { success: false, error: `Invalid upsell request: ${parsed.error.issues[0].message}` };
+    }
+
+    const product = await Product.findById(parsed.data.productId).catch(() => null);
+    if (!product) {
+      return { success: false, error: 'Product not found in catalog.' };
+    }
+
+    const { status, ruleReason } = evaluateUpsell({ product });
+
     const decision = await AgentDecision.create({
       conversationId,
       merchantId,
       productId: product._id,
       decisionType: 'upsell',
-      reason: args.reason,
-      status: 'proposed'
+      reason: parsed.data.reason,
+      status
     });
+
     return {
-      success: true,
+      success: status !== 'rejected',
       decisionId: decision._id,
-      note: 'Upsell proposal logged for review. Not yet approved — mention it as a suggestion, not a confirmed offer.'
+      status,
+      note: status === 'auto_approved'
+        ? 'Upsell approved. You may present it to the shopper as a real suggestion.'
+        : `Upsell rejected by business rules: ${ruleReason}`
     };
   }
 
   if (name === 'propose_discount') {
+    const parsed = discountArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { success: false, error: `Invalid discount request: ${parsed.error.issues[0].message}` };
+    }
+
+    const product = await Product.findById(parsed.data.productId).catch(() => null);
+    if (!product) {
+      return { success: false, error: 'Product not found in catalog.' };
+    }
+
+    const { status, ruleReason } = evaluateDiscount({
+      discountPercent: parsed.data.discountPercent,
+      merchant
+    });
+
     const decision = await AgentDecision.create({
       conversationId,
       merchantId,
       productId: product._id,
       decisionType: 'discount',
-      discountPercent: args.discountPercent,
-      reason: args.reason,
-      status: 'proposed'
+      discountPercent: parsed.data.discountPercent,
+      reason: parsed.data.reason,
+      status
     });
+
+    let note;
+    if (status === 'auto_approved') {
+      note = `Discount approved automatically (${ruleReason}). You may tell the shopper this discount is confirmed.`;
+    } else if (status === 'pending_approval') {
+      note = `Discount requires merchant approval (${ruleReason}). Tell the shopper it has been submitted for review, not confirmed.`;
+    } else {
+      note = `Discount rejected (${ruleReason}). Do not offer this discount to the shopper.`;
+    }
+
     return {
-      success: true,
+      success: status !== 'rejected',
       decisionId: decision._id,
-      note: 'Discount proposal logged for review. It has NOT been applied yet — tell the shopper it is being checked, not confirmed.'
+      status,
+      note
     };
   }
 
