@@ -31,7 +31,7 @@ async function createOrder(req, res) {
         productId,
         decisionType: 'discount',
         discountPercent: Number(discountPercent),
-        status: 'auto_approved'
+        status: { $in: ['auto_approved', 'approved'] }
       }).sort({ createdAt: -1 });
 
       if (!approvedDecision) {

@@ -4,6 +4,8 @@ const connectDB = require('./config/db');
 const productRoutes = require('./routes/products');
 const chatRoutes = require('./routes/chat');
 const orderRoutes = require('./routes/orders');
+const cors = require('cors');
+const decisionRoutes = require('./routes/decisions');
 
 connectDB();
 
@@ -20,6 +22,8 @@ app.use(express.static('public'));
 app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/chat', chatRoutes);
+app.use(cors());
+app.use('/api/decisions', decisionRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend running at http://localhost:${PORT}`);
