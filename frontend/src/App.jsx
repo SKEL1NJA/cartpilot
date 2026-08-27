@@ -5,15 +5,18 @@ const API_URL = import.meta.env.VITE_API_URL;
 function App() {
   const [pending, setPending] = useState([]);
   const [audit, setAudit] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   async function loadData() {
-    const [pendingRes, auditRes] = await Promise.all([
+    const [pendingRes, auditRes, ordersRes] = await Promise.all([
       fetch(`${API_URL}/api/decisions/pending`).then(r => r.json()),
-      fetch(`${API_URL}/api/decisions`).then(r => r.json())
+      fetch(`${API_URL}/api/decisions`).then(r => r.json()),
+      fetch(`${API_URL}/api/orders/recent`).then(r => r.json())
     ]);
     setPending(pendingRes);
     setAudit(auditRes);
+    setOrders(ordersRes);
     setLoading(false);
   }
 
@@ -21,13 +24,15 @@ function App() {
     let ignore = false;
 
     async function load() {
-      const [pendingRes, auditRes] = await Promise.all([
+      const [pendingRes, auditRes, ordersRes] = await Promise.all([
         fetch(`${API_URL}/api/decisions/pending`).then(r => r.json()),
-        fetch(`${API_URL}/api/decisions`).then(r => r.json())
+        fetch(`${API_URL}/api/decisions`).then(r => r.json()),
+        fetch(`${API_URL}/api/orders/recent`).then(r => r.json())
       ]);
       if (!ignore) {
         setPending(pendingRes);
         setAudit(auditRes);
+        setOrders(ordersRes);
         setLoading(false);
       }
     }
@@ -38,7 +43,7 @@ function App() {
 
   async function handleAction(id, action) {
     await fetch(`${API_URL}/api/decisions/${id}/${action}`, { method: 'POST' });
-    loadData(); // refresh both lists so the queue and audit trail stay in sync
+    loadData();
   }
 
   if (loading) return <p style={{ fontFamily: 'sans-serif', margin: 40 }}>Loading...</p>;
@@ -98,6 +103,32 @@ function App() {
               <td style={tdStyle}>{d.discountPercent ? `${d.discountPercent}%` : '-'}</td>
               <td style={tdStyle}>{d.reason}</td>
               <td style={tdStyle}>{d.status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h2 style={{ marginTop: 40 }}>Recent Orders</h2>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Time</th>
+            <th style={thStyle}>Product</th>
+            <th style={thStyle}>Amount</th>
+            <th style={thStyle}>Status</th>
+            <th style={thStyle}>Failure Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map(o => (
+            <tr key={o._id}>
+              <td style={tdStyle}>{new Date(o.createdAt).toLocaleString()}</td>
+              <td style={tdStyle}>{o.productId?.name}</td>
+              <td style={tdStyle}>₹{(o.amount / 100).toFixed(2)}</td>
+              <td style={{ ...tdStyle, color: o.status === 'paid' ? 'green' : o.status === 'failed' ? 'crimson' : 'inherit' }}>
+                {o.status}
+              </td>
+              <td style={tdStyle}>{o.failureReason || '-'}</td>
             </tr>
           ))}
         </tbody>

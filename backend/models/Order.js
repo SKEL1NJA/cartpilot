@@ -10,7 +10,8 @@ const orderSchema = new mongoose.Schema({
   razorpayOrderId: { type: String, required: true, unique: true },
   razorpayPaymentId: { type: String },
   status: { type: String, enum: ['created', 'paid', 'failed'], default: 'created' },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  failureReason: { type: String }
 });
 
 module.exports = mongoose.model('Order', orderSchema);

@@ -109,4 +109,31 @@ async function verifyPayment(req, res) {
   }
 }
 
-module.exports = { createOrder, verifyPayment };
+async function markOrderFailed(req, res) {
+  try {
+    const { razorpay_order_id, reason } = req.body;
+
+    if (!razorpay_order_id) {
+      return res.status(400).json({ error: 'razorpay_order_id is required' });
+    }
+
+    const order = await Order.findOne({ razorpayOrderId: razorpay_order_id });
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    if (order.status === 'paid') {
+      return res.status(200).json({ note: 'Order already paid, ignoring failure notice.' });
+    }
+
+    order.status = 'failed';
+    order.failureReason = reason || 'Payment failed';
+    await order.save();
+
+    res.status(200).json({ orderId: order._id, status: order.status });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to record payment failure', details: err.message });
+  }
+}
+
+module.exports = { createOrder, verifyPayment, markOrderFailed };

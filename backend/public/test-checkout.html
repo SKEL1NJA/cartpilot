@@ -71,8 +71,16 @@
       };
 
       const rzp = new Razorpay(options);
-      rzp.on('payment.failed', function (response) {
+      rzp.on('payment.failed', async function (response) {
         statusEl.innerText = '❌ Payment failed: ' + response.error.description;
+        await fetch('/api/orders/fail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: response.error.metadata.order_id,
+            reason: response.error.description
+          })
+        });
       });
       rzp.open();
     }
