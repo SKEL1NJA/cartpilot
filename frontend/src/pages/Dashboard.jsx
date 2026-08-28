@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 export default function Dashboard() {
+  const { token, logout } = useAuth();
   const [pending, setPending] = useState([]);
   const [audit, setAudit] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -10,12 +12,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [scanMessage, setScanMessage] = useState('');
 
+  const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+
   async function loadData() {
     const [pendingRes, auditRes, ordersRes, recoveryRes] = await Promise.all([
-      fetch(`${API_URL}/api/decisions/pending`).then(r => r.json()),
-      fetch(`${API_URL}/api/decisions`).then(r => r.json()),
-      fetch(`${API_URL}/api/orders/recent`).then(r => r.json()),
-      fetch(`${API_URL}/api/cart-recovery`).then(r => r.json())
+      fetch(`${API_URL}/api/decisions/pending`, authHeaders).then(r => r.json()),
+      fetch(`${API_URL}/api/decisions`, authHeaders).then(r => r.json()),
+      fetch(`${API_URL}/api/orders/recent`, authHeaders).then(r => r.json()),
+      fetch(`${API_URL}/api/cart-recovery`, authHeaders).then(r => r.json())
     ]);
     setPending(pendingRes);
     setAudit(auditRes);
@@ -29,10 +33,10 @@ export default function Dashboard() {
 
     async function load() {
       const [pendingRes, auditRes, ordersRes, recoveryRes] = await Promise.all([
-        fetch(`${API_URL}/api/decisions/pending`).then(r => r.json()),
-        fetch(`${API_URL}/api/decisions`).then(r => r.json()),
-        fetch(`${API_URL}/api/orders/recent`).then(r => r.json()),
-        fetch(`${API_URL}/api/cart-recovery`).then(r => r.json())
+        fetch(`${API_URL}/api/decisions/pending`, authHeaders).then(r => r.json()),
+        fetch(`${API_URL}/api/decisions`, authHeaders).then(r => r.json()),
+        fetch(`${API_URL}/api/orders/recent`, authHeaders).then(r => r.json()),
+        fetch(`${API_URL}/api/cart-recovery`, authHeaders).then(r => r.json())
       ]);
       if (!ignore) {
         setPending(pendingRes);
@@ -45,16 +49,17 @@ export default function Dashboard() {
 
     load();
     return () => { ignore = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleAction(id, action) {
-    await fetch(`${API_URL}/api/decisions/${id}/${action}`, { method: 'POST' });
+    await fetch(`${API_URL}/api/decisions/${id}/${action}`, { method: 'POST', ...authHeaders });
     loadData();
   }
 
   async function handleScan() {
     setScanMessage('Scanning...');
-    const res = await fetch(`${API_URL}/api/cart-recovery/scan`, { method: 'POST' });
+    const res = await fetch(`${API_URL}/api/cart-recovery/scan`, { method: 'POST', ...authHeaders });
     const data = await res.json();
     setScanMessage(`Found ${data.recoveredCount} abandoned cart(s).`);
     loadData();
@@ -64,6 +69,10 @@ export default function Dashboard() {
 
   return (
     <div style={{ fontFamily: 'sans-serif' }}>
+      <div className="flex justify-end mb-2">
+        <button onClick={logout} className="text-sm text-ink-muted hover:text-ink">Log out</button>
+      </div>
+
       <h1>CartPilot Merchant Dashboard</h1>
 
       <h2>Pending Approvals ({pending.length})</h2>
