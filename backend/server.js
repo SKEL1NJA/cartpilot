@@ -6,6 +6,7 @@ const chatRoutes = require('./routes/chat');
 const orderRoutes = require('./routes/orders');
 const cors = require('cors');
 const decisionRoutes = require('./routes/decisions');
+const cartRecoveryRoutes = require('./routes/cartRecovery');
 
 connectDB();
 
@@ -24,6 +25,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/decisions', decisionRoutes);
+app.use('/api/cart-recovery', cartRecoveryRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend running at http://localhost:${PORT}`);

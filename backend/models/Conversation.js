@@ -12,7 +12,10 @@ const conversationSchema = new mongoose.Schema({
   messages: { type: [messageSchema], default: [] },
   status: { type: String, enum: ['active', 'abandoned', 'completed'], default: 'active' },
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
+  recoveryOfferSent: { type: Boolean, default: false },
+  recoveryPaymentLink: { type: String },
+  recoveryMessage: { type: String }
 });
 
 module.exports = mongoose.model('Conversation', conversationSchema);

@@ -6,17 +6,21 @@ function App() {
   const [pending, setPending] = useState([]);
   const [audit, setAudit] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [recovery, setRecovery] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scanMessage, setScanMessage] = useState('');
 
   async function loadData() {
-    const [pendingRes, auditRes, ordersRes] = await Promise.all([
+    const [pendingRes, auditRes, ordersRes, recoveryRes] = await Promise.all([
       fetch(`${API_URL}/api/decisions/pending`).then(r => r.json()),
       fetch(`${API_URL}/api/decisions`).then(r => r.json()),
-      fetch(`${API_URL}/api/orders/recent`).then(r => r.json())
+      fetch(`${API_URL}/api/orders/recent`).then(r => r.json()),
+      fetch(`${API_URL}/api/cart-recovery`).then(r => r.json())
     ]);
     setPending(pendingRes);
     setAudit(auditRes);
     setOrders(ordersRes);
+    setRecovery(recoveryRes);
     setLoading(false);
   }
 
@@ -24,15 +28,17 @@ function App() {
     let ignore = false;
 
     async function load() {
-      const [pendingRes, auditRes, ordersRes] = await Promise.all([
+      const [pendingRes, auditRes, ordersRes, recoveryRes] = await Promise.all([
         fetch(`${API_URL}/api/decisions/pending`).then(r => r.json()),
         fetch(`${API_URL}/api/decisions`).then(r => r.json()),
-        fetch(`${API_URL}/api/orders/recent`).then(r => r.json())
+        fetch(`${API_URL}/api/orders/recent`).then(r => r.json()),
+        fetch(`${API_URL}/api/cart-recovery`).then(r => r.json())
       ]);
       if (!ignore) {
         setPending(pendingRes);
         setAudit(auditRes);
         setOrders(ordersRes);
+        setRecovery(recoveryRes);
         setLoading(false);
       }
     }
@@ -43,6 +49,14 @@ function App() {
 
   async function handleAction(id, action) {
     await fetch(`${API_URL}/api/decisions/${id}/${action}`, { method: 'POST' });
+    loadData();
+  }
+
+  async function handleScan() {
+    setScanMessage('Scanning...');
+    const res = await fetch(`${API_URL}/api/cart-recovery/scan`, { method: 'POST' });
+    const data = await res.json();
+    setScanMessage(`Found ${data.recoveredCount} abandoned cart(s).`);
     loadData();
   }
 
@@ -129,6 +143,32 @@ function App() {
                 {o.status}
               </td>
               <td style={tdStyle}>{o.failureReason || '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h2 style={{ marginTop: 40 }}>Cart Recovery</h2>
+      <button onClick={handleScan} style={{ padding: '8px 16px', marginBottom: 10 }}>
+        Scan for Abandoned Carts
+      </button>
+      {scanMessage && <p>{scanMessage}</p>}
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Updated</th>
+            <th style={thStyle}>Recovery Message</th>
+            <th style={thStyle}>Payment Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recovery.map(c => (
+            <tr key={c._id}>
+              <td style={tdStyle}>{new Date(c.updatedAt).toLocaleString()}</td>
+              <td style={tdStyle}>{c.recoveryMessage}</td>
+              <td style={tdStyle}>
+                <a href={c.recoveryPaymentLink} target="_blank" rel="noreferrer">Open Link</a>
+              </td>
             </tr>
           ))}
         </tbody>
