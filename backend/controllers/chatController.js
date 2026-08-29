@@ -3,10 +3,10 @@ const Customer = require('../models/Customer');
 const Conversation = require('../models/Conversation');
 const Merchant = require('../models/Merchant');
 const Product = require('../models/Product');
+const AgentDecision = require('../models/AgentDecision');
 const { getRecentMessages } = require('../utils/context');
 const { runAgent } = require('../agent/orchestrator');
 
-// POST /api/chat
 async function handleChatMessage(req, res) {
   try {
     const { message, sessionId } = req.body;
@@ -67,11 +67,35 @@ async function handleChatMessage(req, res) {
       reply,
       sessionId: activeSessionId,
       conversationId: conversation._id,
-      toolCallLog // TEMPORARY
+      toolCallLog
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to process chat message', details: err.message });
   }
 }
 
-module.exports = { handleChatMessage };
+async function getConversationState(req, res) {
+  try {
+    const { sessionId } = req.params;
+
+    const customer = await Customer.findOne({ sessionId });
+    if (!customer) {
+      return res.status(200).json({ messages: [], decisions: [] });
+    }
+
+    const conversation = await Conversation.findOne({ customerId: customer._id }).sort({ updatedAt: -1 });
+    if (!conversation) {
+      return res.status(200).json({ messages: [], decisions: [] });
+    }
+
+    const decisions = await AgentDecision.find({ conversationId: conversation._id })
+      .populate('productId', 'name')
+      .sort({ createdAt: 1 });
+
+    res.status(200).json({ messages: conversation.messages, decisions });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load conversation', details: err.message });
+  }
+}
+
+module.exports = { handleChatMessage, getConversationState };
