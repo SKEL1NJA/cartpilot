@@ -25,7 +25,7 @@ repeated paid API calls with no user-facing progress.
 ## Deterministic rules instead of a second LLM call
 Guardrail decisions (auto-approve / pending / reject) are evaluated by plain
 JavaScript (`agent/rules.js`), not by asking the LLM "is this discount
-reasonable?" This is both a safety decision (Day 7) and a cost decision:
+reasonable?" This is both a safety decision and a cost decision:
 zero additional API calls are spent on business-rule evaluation.
 
 ## Retry with backoff, not naive infinite retry

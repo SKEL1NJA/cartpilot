@@ -6,6 +6,9 @@ bounded upsells and discounts, and completes checkout through Razorpay
 
 Built for the **Razorpay AI Buildathon 2026 — Track 01: AI Growth & Agentic Commerce**.
 
+**Live app**: https://cartpilot-c32t.vercel.app/
+**Backend API**: https://cartpilot-3ohn.onrender.com
+
 ## Table of Contents
 - [Problem](#problem)
 - [Solution](#solution)
@@ -39,6 +42,8 @@ auto-approved, sent to a merchant for review, or rejected outright. Approved
 discounts flow into real Razorpay test-mode checkout. Abandoned conversations
 can be recovered with one capped, logged offer via a Razorpay Payment Link.
 
+![CartPilot storefront with live chat](docs/screenshots/storefront-chat.png)
+
 ## Features
 - Conversational product discovery grounded in a live MongoDB catalog
 - AI-proposed upsells and discounts via tool/function calling
@@ -48,7 +53,7 @@ can be recovered with one capped, logged offer via a Razorpay Payment Link.
 - Graceful, verified failure handling for declined payments
 - Cart recovery via Razorpay Payment Links, capped to one offer per conversation
 - JWT-protected merchant dashboard
-- Structured AI evaluation harness (8 behavioral test cases) + 14 automated unit tests
+- Structured AI evaluation harness (8 behavioral test cases) + automated unit tests
 - Structured, JSON-line observability logging of every AI call and agent run
 
 ## Architecture
@@ -108,7 +113,8 @@ the mechanism that makes every money-related action explainable and bounded.
   (`POST /api/orders/verify`); a payment is only marked `paid` if the
   signature matches
 - **Payment Links** — used for cart recovery, generated server-side
-- All Razorpay keys live in `.env`, server-side only, never sent to the frontend
+- All Razorpay keys live in environment variables, server-side only, never
+  sent to the frontend
 
 ## Security & Guardrails
 - The AI can only request actions through two typed tools — never arbitrary
@@ -124,7 +130,10 @@ the mechanism that makes every money-related action explainable and bounded.
   at the order-creation endpoint
 - The merchant dashboard and all decision/order-recovery endpoints require a
   JWT issued after a password check; shopper-facing endpoints remain public
-  by design
+  by design — a deliberate, appropriately-scoped choice for a single-merchant
+  demo, not full multi-account auth
+
+![Merchant dashboard — pending approvals](docs/screenshots/dashboard-pending.png)
 
 ## Failure Handling
 Full write-up: [`docs/failure-scenario.md`](docs/failure-scenario.md)
@@ -137,12 +146,16 @@ overload/rate-limiting (retry + graceful fallback), rejected discount/upsell
 proposals (deterministic, never ambiguous), and unapproved discounts blocked
 at the API level regardless of client input.
 
+![Recent orders showing a handled failure](docs/screenshots/orders-failure.png)
+
 ## Audit Trail
 Every AI proposal becomes an `AgentDecision` record: conversation, product,
 type, reason, and real outcome status. Every order attempt becomes an
 `Order` record with amount, Razorpay IDs, and status (including failure
 reason, if any). Both are visible, timestamped, and filterable in the
 merchant dashboard's Audit Trail and Recent Orders tabs.
+
+![Audit trail with varied decision statuses](docs/screenshots/audit-trail.png)
 
 ## Database Design
 
@@ -211,7 +224,7 @@ npm run dev
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # set VITE_API_URL to your backend URL
+cp .env.example .env   # set VITE_API_URL to your backend URL, no trailing slash
 npm run dev
 ```
 
@@ -229,23 +242,30 @@ npm run dev
 ### Environment variables (frontend)
 | Variable | Purpose |
 |---|---|
-| `VITE_API_URL` | Backend base URL |
+| `VITE_API_URL` | Backend base URL — **no trailing slash** |
 
 ## Testing
 ```bash
 cd backend
-npx jest          # 14 unit tests: business rules + input validation
+npx jest          # unit tests: business rules + input validation
 npm run eval       # 8 behavioral AI evaluation scenarios (live agent)
 ```
 See [`docs/ai-evaluation.md`](docs/ai-evaluation.md) for methodology and latest results.
 
 ## AI Evaluation
-See [`docs/ai-evaluation.md`](docs/ai-evaluation.md) — includes the current
-8/8 pass results and an honest note on a real rate-limit issue found and
+See [`docs/ai-evaluation.md`](docs/ai-evaluation.md) — includes current
+pass results (8/8) and an honest note on a real rate-limit issue found and
 fixed during development.
 
 ## Deployment
-_Deployed URL and instructions added here after deployment (Day 15)._
+- **Live app**: https://cartpilot-c32t.vercel.app/
+- **Backend API**: https://cartpilot-3ohn.onrender.com
+- Frontend deployed on Vercel, backend on Render (free tier), database on MongoDB Atlas (free tier)
+
+**Note on cold starts**: the backend is on Render's free tier, which spins
+down after 15 minutes of inactivity and takes 30-60 seconds to wake on the
+next request. If the app seems slow to respond on first load, this is why —
+a real, documented tradeoff of the free tier, not a bug.
 
 ## Future Improvements
 - Full user-account merchant login (currently a single shared password,

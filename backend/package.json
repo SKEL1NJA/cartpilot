@@ -12,6 +12,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=20"
+  },
   "type": "commonjs",
   "dependencies": {
     "@google/genai": "^2.18.0",
