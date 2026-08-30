@@ -1,4 +1,5 @@
 const { GoogleGenAI } = require('@google/genai');
+const { logEvent } = require('../utils/logger');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
@@ -41,13 +42,35 @@ async function callGemini({ contents, systemInstruction, tools }) {
   let lastError;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const startedAt = Date.now();
     try {
       const response = await ai.models.generateContent({ model: MODEL, contents, config });
+      const latencyMs = Date.now() - startedAt;
+
+      logEvent('gemini_call', {
+        model: MODEL,
+        latencyMs,
+        attempt,
+        promptTokens: response.usageMetadata?.promptTokenCount ?? null,
+        completionTokens: response.usageMetadata?.candidatesTokenCount ?? null,
+        totalTokens: response.usageMetadata?.totalTokenCount ?? null,
+        toolCallRequested: Array.isArray(response.functionCalls) && response.functionCalls.length > 0
+      });
+
       return response;
     } catch (err) {
+      const latencyMs = Date.now() - startedAt;
       lastError = err;
       const isOverloaded = err.message && err.message.includes('UNAVAILABLE');
       const isRateLimited = err.message && err.message.includes('RESOURCE_EXHAUSTED');
+
+      logEvent('gemini_call_failed', {
+        model: MODEL,
+        latencyMs,
+        attempt,
+        errorType: isRateLimited ? 'rate_limited' : isOverloaded ? 'overloaded' : 'other',
+        error: err.message.slice(0, 200)
+      });
 
       if ((isOverloaded || isRateLimited) && attempt < MAX_RETRIES) {
         const waitMs = isRateLimited ? 15000 * (attempt + 1) : 1000 * (attempt + 1);
