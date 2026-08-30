@@ -47,9 +47,11 @@ async function callGemini({ contents, systemInstruction, tools }) {
     } catch (err) {
       lastError = err;
       const isOverloaded = err.message && err.message.includes('UNAVAILABLE');
-      if (isOverloaded && attempt < MAX_RETRIES) {
-        const waitMs = 1000 * (attempt + 1); // 1s, then 2s
-        console.warn(`Gemini overloaded, retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
+      const isRateLimited = err.message && err.message.includes('RESOURCE_EXHAUSTED');
+
+      if ((isOverloaded || isRateLimited) && attempt < MAX_RETRIES) {
+        const waitMs = isRateLimited ? 15000 * (attempt + 1) : 1000 * (attempt + 1);
+        console.warn(`Gemini ${isRateLimited ? 'rate-limited' : 'overloaded'}, retrying in ${waitMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})`);
         await new Promise(resolve => setTimeout(resolve, waitMs));
         continue;
       }
